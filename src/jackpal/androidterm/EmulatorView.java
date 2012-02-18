@@ -55,6 +55,7 @@ import jackpal.androidterm.session.TerminalEmulator;
 import jackpal.androidterm.session.TermSession;
 import jackpal.androidterm.session.TranscriptScreen;
 import jackpal.androidterm.util.TermSettings;
+import jackpal.androidterm.gestureinput.*;
 
 /**
  * A view on a transcript and a terminal emulator. Displays the text of the
@@ -224,6 +225,9 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
     private WindowSizeCallback mSizeCallback;
 
     private String mImeBuffer = "";
+
+    private boolean mUseGestureKeyboard = true;
+    private AndroidGestureKeyboard mGestureKeyboard;
 
     // Used by activity to inform us how much of the window belongs to us
     public interface WindowSizeCallback {
@@ -626,6 +630,11 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         session.setProcessExitMessage(context.getString(R.string.process_exit_message));
 
         mKeyListener = new TermKeyListener(session);
+        mGestureKeyboard = new AndroidGestureKeyboard(4,4, new GestureKeyboard.ActionListener() {
+            public void onAction(int type, String str) {
+                mTermSession.write(str);
+            }
+        });
     }
 
     public void setWindowSizeCallback(WindowSizeCallback callback) {
@@ -803,10 +812,13 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
     // End GestureDetector.OnGestureListener methods
 
     @Override public boolean onTouchEvent(MotionEvent ev) {
+        Log.w(TAG, "onTouchEvent " + ev.getAction());
         if (mIsSelectingText) {
             return onTouchEventWhileSelectingText(ev);
         } else {
-            return mGestureDetector.onTouchEvent(ev);
+            return mGestureKeyboard.onTouchEvent(ev);
+            // TODO: chain it someway
+            //return mGestureDetector.onTouchEvent(ev);
         }
     }
 

@@ -3,6 +3,7 @@ docs/Market Icon.png
 gen/
 libs/
 local.properties
+default.properties
 obj/
 .classpath
 .project
