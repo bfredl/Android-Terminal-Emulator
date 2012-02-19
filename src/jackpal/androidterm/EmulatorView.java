@@ -634,6 +634,10 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
             public void onAction(int type, String str) {
                 mTermSession.write(str);
             }
+
+            public void displayMsg(String msg) {
+                setImeBuffer(msg);
+            }
         });
     }
 
@@ -812,13 +816,14 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
     // End GestureDetector.OnGestureListener methods
 
     @Override public boolean onTouchEvent(MotionEvent ev) {
-        Log.w(TAG, "onTouchEvent " + ev.getAction());
         if (mIsSelectingText) {
             return onTouchEventWhileSelectingText(ev);
         } else {
-            return mGestureKeyboard.onTouchEvent(ev);
-            // TODO: chain it someway
-            //return mGestureDetector.onTouchEvent(ev);
+            if( mGestureKeyboard.onTouchEvent(ev)) {
+                return true; 
+            } else {
+                return mGestureDetector.onTouchEvent(ev);
+            }
         }
     }
 
@@ -990,6 +995,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
         mTopOfScreenMargin = mTextRenderer.getTopMargin();
         mRows = Math.max(1, (h - mTopOfScreenMargin) / mCharacterHeight);
         mTermSession.updateSize(mColumns, mRows);
+        mGestureKeyboard.resizeSquare(w,h,10);
 
         // Reset our paging:
         mTopRow = 0;
