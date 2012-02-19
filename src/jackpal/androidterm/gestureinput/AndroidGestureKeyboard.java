@@ -7,7 +7,8 @@ public class AndroidGestureKeyboard extends GestureKeyboard {
     private final String TAG = "AGestureKeyboard";
     public AndroidGestureKeyboard(int rows, int cols, ActionListener l) {
         super(rows, cols, l);
-        demoMap();
+        //demoMap();
+        readFile("/sdcard/mapping.txt");
     }
 
     private boolean mCaptured = false;

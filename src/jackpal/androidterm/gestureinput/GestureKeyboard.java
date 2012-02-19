@@ -1,5 +1,7 @@
 package jackpal.androidterm.gestureinput;
 import android.util.Log;
+import java.io.*;
+import java.util.regex.Pattern;
 public class GestureKeyboard {
     private final String TAG = "GestureKeyboard";
 
@@ -20,6 +22,7 @@ public class GestureKeyboard {
     private class GKAction {
         int type = 0;
         String str = null;
+        String desc = "";
         GKAction(int t, String s) {
             type = t; str = s;
         }
@@ -37,6 +40,14 @@ public class GestureKeyboard {
         mReady = true;
     }
 
+    public void mapGesture(int pos0, int pos1, String s) {
+        mActions[pos0][pos1] = new GKAction(ACTION_WRITE, s);
+    }
+
+    public void mapGesture(int pos0, int pos1, String s, String rev) {
+        mapGesture(pos0, pos1, s);
+        mapGesture(pos1, pos0, rev);
+    }
     public void mapGesture(int c0, int r0, int c1, int r1, String s) {
         int n = mCols;
         mActions[n*r0+c0][n*r1+c1] = new GKAction(ACTION_WRITE, s);
@@ -141,6 +152,12 @@ public class GestureKeyboard {
         return String.format("%c%d", 'A' + c, r);
     }
 
+    public int asPos(int c, int r) {
+        if( 0 <= c && c < mCols && 0<=r && r< mRows) 
+            return mCols*r+c;    
+        else 
+            return -1;
+    }
 
     private void display(String msg) {
         mListener.displayMsg(msg);
@@ -149,6 +166,195 @@ public class GestureKeyboard {
         void onAction(int type, String str);
         void displayMsg(String msg);
     }
+
+    public void readFile(String filename) {
+        MapFileReader fr;
+        try {
+            fr = new MapFileReader(new FileReader(filename),this);
+        } catch(Exception e) {
+            throw new RuntimeException(e);
+        }
+        fr.parseFile();
+    }
+
 }
 
+class MapFileReader extends StreamTokenizer {
+    private static final String TAG = "MapFileReader";
+    private GestureKeyboard mTarget;
+    MapFileReader(Reader r, GestureKeyboard target) {
+        super(r);
+        mTarget = target;
+        eolIsSignificant(true);
+        whitespaceChars(' ', ' ');
+        whitespaceChars('\t', '\t');
+        wordChars('a','z');
+        wordChars('A','Z');
+        wordChars('0','9');
+        ordinaryChar('.');
+        ordinaryChar('-');
+        quoteChar('"');
+        commentChar('#');
+    }
+    void fail() {
+        throw new RuntimeException("Meh" + lineno());
+    }
+
+    void nextTok() {
+        try {
+            nextToken();
+        } catch(IOException e ) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    void parseFile() {
+        while(true) {
+            nextTok();
+            if( ttype == TT_EOL) {
+                continue;
+            } else if(ttype == TT_EOF) {
+                break;
+            } else if(parseLine()) {
+                continue;
+            } else {
+                fail();
+            }
+
+        }
+    }
+
+    // reuses
+    boolean parseLine() {
+        if(ttype != TT_WORD) {
+            return false;
+        }
+        if(isPos()) {
+            parseMapping();
+        } else if(sval.equals("pairs")) {
+            parsePairs();
+        } else if(sval.equals("sing")) {
+            parseSingles();
+        } else {
+            fail();
+        }
+        return true;
+    }
+
+    // reuses
+    void parseMapping() {
+        int pos = asPos();
+        nextTok();
+        if(ttype == TT_WORD && isPos()) {
+            int pos2 = asPos();
+            String a1 = parseAction();
+            if(a1 == null) {
+                fail();
+            }
+            String a2 = parseAction();
+            if(a2 != null) {
+                mTarget.mapGesture(pos, pos2, a1, a2);
+            } else {
+                mTarget.mapGesture(pos, pos2, a1);
+            }
+        } else {
+            pushBack();
+            String a = parseAction();
+            if(a != null) {
+                mTarget.mapGesture(pos, pos, a);
+            } else {
+                fail();
+            }
+        }
+    }
+
+    void parsePairs() {
+        nextTok();
+        if(ttype != TT_WORD && ttype != TT_NUMBER) {
+            fail();
+        }
+        boolean col;
+        int posu, r=-100, c=-100;
+        if( ttype == TT_WORD) {
+            char s = sval.charAt(0);
+            col = true;
+            c = s - 'A';
+        } else {
+            col = false;
+            r = (int)nval;
+            Log.d(TAG, "nval " + r);
+        }
+        for (int v = 0; v < 3; v++) {
+            String a1 = parseAction();
+            Log.d(TAG, "a1 " + a1);
+            String a2 = parseAction();
+            Log.d(TAG, "a2 " + a2);
+            if(col) {
+                mTarget.mapGesture(c, v, c, v+1, a1, a2);
+            } else {
+                mTarget.mapGesture(v, r, v+1, r, a1, a2);
+            }
+        }
+    } 
+
+    void parseSingles() {
+        nextTok();
+        if(ttype != TT_WORD && ttype != TT_NUMBER) {
+            fail();
+        }
+        boolean col;
+        int posu, r=-100, c=-100;
+        if( ttype == TT_WORD) {
+            char s = sval.charAt(0);
+            col = true;
+            c = s - 'A';
+        } else {
+            col = false;
+            r = (int)nval;
+        }
+        for (int v = 0; v < 4; v++) {
+            String a1 = parseAction();
+            if(col) {
+                r = v;
+            } else {
+                c = v;
+            }
+            mTarget.mapGesture(r, c, r, c, a1);
+        }
+    }
+    // reuses NOT
+    String parseAction() {
+        nextTok();
+        if(ttype == '"') {
+            return sval; 
+        } else if(ttype == TT_WORD) {
+            if(isPos()) {
+                pushBack();
+                return null;
+            } else {
+                return sval;
+            }
+        } else if(ttype == TT_EOF || ttype == TT_EOL) {
+            pushBack();
+            return null;
+        } else {
+            Log.d(TAG, "ttype " + ttype);
+            return String.format("%c",ttype);
+        }
+    }
+
+
+    
+    boolean isPos() {
+        return Pattern.matches("[A-Za-z][0-9]", sval);
+    }
+
+    int asPos() {
+        char c0 = sval.charAt(0);
+        int c = c0 > 'Z' ? c0 - 'a' : c0 - 'A';
+        char r0 = sval.charAt(1);
+        int r = r0 - '0';
+        return mTarget.asPos(c,r);
+    }
+}
 
