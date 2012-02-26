@@ -277,7 +277,7 @@ public class TranscriptScreen implements Screen {
             int imeOffset = imeText.length() - imeLength;
             int imePosition = Math.min(cx, columns - imeLength);
             renderer.drawTextRun(canvas, x, y, imePosition, imeLength, imeText.toCharArray(),
-                    imeOffset, imeLength, true, 0x0f, 0x00);
+                    imeOffset, imeLength, false, defaultBackColor, defaultForeColor);
         }
      }
 

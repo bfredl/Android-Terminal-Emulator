@@ -631,7 +631,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
 
         mKeyListener = new TermKeyListener(session);
         mGestureKeyboard = new AndroidGestureKeyboard(4,4, new GestureKeyboard.ActionListener() {
-            public void onAction(int type, String str) {
+            public void writeStr(String str) {
                 mTermSession.write(str);
             }
 
@@ -820,6 +820,8 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
             return onTouchEventWhileSelectingText(ev);
         } else {
             if( mGestureKeyboard.onTouchEvent(ev)) {
+                if(mGestureKeyboard.needsDraw())
+                    invalidate(); 
                 return true; 
             } else {
                 return mGestureDetector.onTouchEvent(ev);
@@ -1088,6 +1090,7 @@ public class EmulatorView extends View implements GestureDetector.OnGestureListe
             mTranscriptScreen.drawText(i, canvas, x, y, mTextRenderer, cursorX, selx1, selx2, mImeBuffer);
             y += mCharacterHeight;
         }
+        mGestureKeyboard.draw(canvas);
     }
 
     private void ensureCursorVisible() {

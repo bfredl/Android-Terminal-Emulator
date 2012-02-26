@@ -5,28 +5,39 @@ import java.util.regex.Pattern;
 public class GestureKeyboard {
     private final String TAG = "GestureKeyboard";
 
-    private int mRows, mCols;
+    protected int mRows, mCols;
     private GKAction[][] mActions;
     private boolean mReady = false;
 
-    private int mPadX, mPadY;
-    private int mWidth, mHeight;
+    protected int mPadX, mPadY;
+    protected int mWidth, mHeight;
 
-    private boolean mMoving = false;
-    private int mStartPos;
+    protected boolean mMoving = false;
+    protected int mStartPos;
+    protected int mCurPos;
 
 
     private ActionListener mListener;
     
-    public final int ACTION_WRITE = 1000;
-    private class GKAction {
-        int type = 0;
-        String str = null;
-        String desc = "";
-        GKAction(int t, String s) {
-            type = t; str = s;
+    public abstract static class GKAction {
+        abstract public String describe();
+        abstract void perform(); 
+    }
+
+    private class TypeAction extends GKAction {
+        String mTyped,mDescr;
+        TypeAction(String typed) {
+            mTyped = typed;
+            mDescr = typed; //FIXME
+        }
+        public String describe() {
+            return mDescr;
+        }
+        public void perform() {
+            mListener.writeStr(mTyped);
         }
     }
+
 
     public GestureKeyboard() {
         mReady = false;
@@ -41,7 +52,7 @@ public class GestureKeyboard {
     }
 
     public void mapGesture(int pos0, int pos1, String s) {
-        mActions[pos0][pos1] = new GKAction(ACTION_WRITE, s);
+        mActions[pos0][pos1] = new TypeAction(s);
     }
 
     public void mapGesture(int pos0, int pos1, String s, String rev) {
@@ -50,7 +61,7 @@ public class GestureKeyboard {
     }
     public void mapGesture(int c0, int r0, int c1, int r1, String s) {
         int n = mCols;
-        mActions[n*r0+c0][n*r1+c1] = new GKAction(ACTION_WRITE, s);
+        mActions[n*r0+c0][n*r1+c1] = new TypeAction(s);
     }
 
     public void mapGesture(int c0, int r0, int c1, int r1, String s, String rev) {
@@ -72,10 +83,10 @@ public class GestureKeyboard {
     }
 
     public boolean onTouchDown(float x, float y) {
-        mStartPos = locate(x,y);
+        mStartPos = mCurPos = locate(x,y);
         Log.d(TAG, "onTouchDown " + mStartPos);
         mMoving = mStartPos >= 0;
-        displayPos(mStartPos);
+        displayAction(mStartPos, mStartPos);
         return mMoving;
     }
 
@@ -85,7 +96,7 @@ public class GestureKeyboard {
             return false;
         }
         mMoving = false;
-        displayPos(-1);
+        display("");
         int endPos = locate(x,y);
         Log.d(TAG, "onTouchUP endp "+endPos);
         if( endPos == -1) {
@@ -99,8 +110,8 @@ public class GestureKeyboard {
         if( ! mMoving) {
             return false;
         }
-        int pos = locate(x,y);
-        displayPos(pos);
+        mCurPos = locate(x,y);
+        displayAction(mStartPos, mCurPos);
         return true;
     }
 
@@ -122,12 +133,19 @@ public class GestureKeyboard {
     private void performAction(int startPos, int endPos) {
         GKAction a = mActions[startPos][endPos];
         if(a != null) 
-            performAction(a);
+            a.perform();
     }
 
-    void performAction(GKAction a) {
-        if(a.type >= 1000) {
-            mListener.onAction(a.type, a.str);
+    private void displayAction(int startPos, int endPos) {
+        if(startPos < 0 || endPos < 0 ) {
+            display("");
+            return;
+        }
+        GKAction a = mActions[startPos][endPos];
+        if(a != null) {
+            display(a.describe());
+        } else {
+            display("");
         }
     }
 
@@ -136,12 +154,14 @@ public class GestureKeyboard {
     }
 
     private void displayPos(int pos) {
+        mCurPos = pos;
         if( !mMoving ) {
             display("");
         } else {
             display(formatPos(pos));
         }
     }
+
     
     private String formatPos(int pos) {
         if( pos < 0 ) {
@@ -163,8 +183,8 @@ public class GestureKeyboard {
         mListener.displayMsg(msg);
     }
     public static interface ActionListener {
-        void onAction(int type, String str);
         void displayMsg(String msg);
+        void writeStr(String typed);
     }
 
     public void readFile(String filename) {
