@@ -1,6 +1,7 @@
 package jackpal.androidterm.gestureinput;
 import android.util.Log;
 import java.io.*;
+import java.util.*;
 import java.util.regex.Pattern;
 public class GestureKeyboard {
     private final String TAG = "GestureKeyboard";
@@ -16,7 +17,6 @@ public class GestureKeyboard {
     protected int mStartPos;
     protected int mCurPos;
 
-
     private ActionListener mListener;
     
     public abstract static class GKAction {
@@ -29,6 +29,12 @@ public class GestureKeyboard {
         TypeAction(String typed) {
             mTyped = typed;
             mDescr = typed; //FIXME
+            if(mTyped.length() == 1) {
+                char x = mTyped.charAt(0);
+                if(x < ' ') {
+                    mDescr = String.format("^%c", x+'@');
+                }
+            }
         }
         public String describe() {
             return mDescr;
@@ -124,10 +130,7 @@ public class GestureKeyboard {
         float r0 = (y-mPadY)*mRows/mHeight;
         int c = (int)Math.floor(c0);
         int r = (int)Math.floor(r0);
-        if( 0 <= c && c < mCols && 0<=r && r< mRows) 
-            return mCols*r+c;    
-        else 
-            return -1;
+        return asPos(c,r);
     }
 
     private void performAction(int startPos, int endPos) {
@@ -153,6 +156,9 @@ public class GestureKeyboard {
         return mMoving;
     }
 
+    public int columns() {
+        return mCols;
+    }
     private void displayPos(int pos) {
         mCurPos = pos;
         if( !mMoving ) {
@@ -202,6 +208,19 @@ public class GestureKeyboard {
 class MapFileReader extends StreamTokenizer {
     private static final String TAG = "MapFileReader";
     private GestureKeyboard mTarget;
+
+    private static class Shape {
+        int repeatCount;
+        int repeatOffset;
+        int[] pattern;
+        Shape(int c, int o, int[] p) {
+            repeatCount = c;
+            repeatOffset = o; 
+            pattern = p;
+        }
+    }
+    private Map<String, Shape> mShapes = new HashMap();
+
     MapFileReader(Reader r, GestureKeyboard target) {
         super(r);
         mTarget = target;
@@ -213,9 +232,12 @@ class MapFileReader extends StreamTokenizer {
         wordChars('0','9');
         ordinaryChar('.');
         ordinaryChar('-');
+        ordinaryChar('/'); //meh
+        ordinaryChar('\\'); //meh
         quoteChar('"');
         commentChar('#');
     }
+
     void fail() {
         throw new RuntimeException("Meh" + lineno());
     }
@@ -249,12 +271,15 @@ class MapFileReader extends StreamTokenizer {
         if(ttype != TT_WORD) {
             return false;
         }
+        sval = sval.intern();
         if(isPos()) {
             parseMapping();
-        } else if(sval.equals("pairs")) {
-            parsePairs();
-        } else if(sval.equals("sing")) {
+        } else if(sval == "sing") {
             parseSingles();
+        } else if(sval == "shape") {
+            parseShape();
+        } else if(mShapes.containsKey(sval)) {
+            parseShapeInvoke(mShapes.get(sval));
         } else {
             fail();
         }
@@ -288,64 +313,98 @@ class MapFileReader extends StreamTokenizer {
         }
     }
 
-    void parsePairs() {
+    void parseShape() {
         nextTok();
-        if(ttype != TT_WORD && ttype != TT_NUMBER) {
+        if(ttype != TT_WORD) 
+            fail();
+        String name = sval;
+        nextTok();
+        if(ttype != TT_WORD) 
+            fail();
+        int offset = -100;;
+        if( sval.equals("r")) {
+            offset = 1; 
+        } else if( sval.equals("c")) { 
+            offset = mTarget.columns();
+        } else {
             fail();
         }
-        boolean col;
-        int posu, r=-100, c=-100;
-        if( ttype == TT_WORD) {
-            char s = sval.charAt(0);
-            col = true;
-            c = s - 'A';
-        } else {
-            col = false;
-            r = (int)nval;
-            Log.d(TAG, "nval " + r);
+
+        nextTok();
+        if(ttype != TT_NUMBER) 
+            fail();
+        int count = (int)nval;
+        List<Integer> pattern = new ArrayList();
+        nextTok();
+        while(isPos()) {
+            pattern.add(asPos());
+            nextTok();
         }
-        for (int v = 0; v < 3; v++) {
-            String a1 = parseAction();
-            Log.d(TAG, "a1 " + a1);
-            String a2 = parseAction();
-            Log.d(TAG, "a2 " + a2);
-            if(col) {
-                mTarget.mapGesture(c, v, c, v+1, a1, a2);
-            } else {
-                mTarget.mapGesture(v, r, v+1, r, a1, a2);
+        pushBack();
+        Log.d(TAG, String.format("shape %d %d %s", count, offset, pattern) );
+        mShapes.put(name, new Shape(count, offset, intArray(pattern)));
+    }
+
+    void parseShapeInvoke(Shape s) {
+        nextTok();
+        int basepos = -100;
+        if(isPos()) {
+            basepos = asPos();
+        } else if(ttype == TT_WORD && sval.length() == 1) {
+            basepos = sval.charAt(0) - 'A'; 
+        } else if(ttype == TT_NUMBER) {
+            basepos = mTarget.columns()*(int)nval;
+        } else {
+            fail();
+        }
+        for(int i = 0; i < s.repeatCount; i++) {
+            int pos0 = basepos+i*s.repeatOffset;
+            for(int k = 0; k < s.pattern.length-1; k+=2) {
+                int pos1 = pos0+s.pattern[k];
+                int pos2 = pos0+s.pattern[k+1];
+                String a1 = parseAction();
+                if(a1 == null) {
+                    return;
+                }
+                String a2 = parseAction();
+                if(a2 != null) {
+                    Log.d(TAG, String.format("si %d %d %s %s", pos1, pos2, a1, a2) );
+                    mTarget.mapGesture(pos1, pos2, a1, a2);
+                } else {
+                    mTarget.mapGesture(pos2, pos2, a1);
+                    return;
+                }
             }
         }
-    } 
+
+    }
+
+    private static int[] intArray(List<Integer> integers) {
+        int[] ints = new int[integers.size()];
+        int i = 0;
+        for (Integer n : integers) {
+            ints[i++] = n;
+        }
+        return ints;
+    }
 
     void parseSingles() {
         nextTok();
-        if(ttype != TT_WORD && ttype != TT_NUMBER) {
+        if(ttype != TT_NUMBER) {
             fail();
         }
-        boolean col;
-        int posu, r=-100, c=-100;
-        if( ttype == TT_WORD) {
-            char s = sval.charAt(0);
-            col = true;
-            c = s - 'A';
-        } else {
-            col = false;
-            r = (int)nval;
-        }
-        for (int v = 0; v < 4; v++) {
+        int r = (int)nval;
+        for (int c = 0; c < 4; c++) {
             String a1 = parseAction();
-            if(col) {
-                r = v;
-            } else {
-                c = v;
-            }
-            mTarget.mapGesture(r, c, r, c, a1);
+            if(a1 == null) 
+                return;
+            mTarget.mapGesture(c, r, c, r, a1);
         }
     }
-    // reuses NOT
+    // reuses NOT, pushes back on fail
     String parseAction() {
         nextTok();
-        if(ttype == '"') {
+        if(ttype == '"' || ttype == '\'') {
             return sval; 
         } else if(ttype == TT_WORD) {
             if(isPos()) {
@@ -358,17 +417,18 @@ class MapFileReader extends StreamTokenizer {
             pushBack();
             return null;
         } else {
-            Log.d(TAG, "ttype " + ttype);
+            Log.d(TAG, String.format("ttype %d %c", ttype, ttype));
             return String.format("%c",ttype);
         }
     }
 
 
-    
+    // reuses
     boolean isPos() {
-        return Pattern.matches("[A-Za-z][0-9]", sval);
+        return ttype == TT_WORD && Pattern.matches("[A-Za-z][0-9]", sval);
     }
 
+    // reuses
     int asPos() {
         char c0 = sval.charAt(0);
         int c = c0 > 'Z' ? c0 - 'a' : c0 - 'A';

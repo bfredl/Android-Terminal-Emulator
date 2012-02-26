@@ -1,0 +1,26 @@
+shape rpairs r 3 A0 B0 
+shape cpairs r 4 A0 A1
+
+rpairs 0 a A i I h H
+rpairs 1 o O m M t T
+rpairs 2 e E w W n N
+rpairs 3 u U d D s S
+
+cpairs 0 p P y Y f F g G
+cpairs 1 c C r R l L q Q
+cpairs 2 j J k K x X b B
+
+shape crossr r 3 A0 B1
+shape crossl r 3 B0 A1 
+
+crossr 0 . , ! ? = &
+crossl 0 ; : "'" '"' / \
+crossr 1 "0" "1" "4" "5" "8" "9" 
+crossl 1 "2" "3" "6" "7" "+" "*" 
+crossr 2 " " "\t" "\015" "\04" v V
+crossl 2 "\010" "\033" "\03" "\032" z Z
+
+sing 0 "0" "1" "2" "3"
+sing 1 "" "4" "5" "6"
+sing 2 "" "7" "8" "9"
+sing 3 "\033[D" "\033[B" "\033[A" "\033[C"
