@@ -224,6 +224,7 @@ class MapFileReader extends StreamTokenizer {
     MapFileReader(Reader r, GestureKeyboard target) {
         super(r);
         mTarget = target;
+        //resetSyntax();
         eolIsSignificant(true);
         whitespaceChars(' ', ' ');
         whitespaceChars('\t', '\t');
@@ -235,6 +236,7 @@ class MapFileReader extends StreamTokenizer {
         ordinaryChar('/'); //meh
         ordinaryChar('\\'); //meh
         quoteChar('"');
+        quoteChar('\'');
         commentChar('#');
     }
 
@@ -412,6 +414,20 @@ class MapFileReader extends StreamTokenizer {
                 return null;
             } else {
                 return sval;
+            }
+        } else if(ttype == '^') {
+            nextTok();
+            if(ttype == TT_WORD && sval.length() == 1) {
+                char ch = sval.charAt(0);
+                if('A' <= ch && ch <= 'Z') {
+                    return String.format("%c",ch-'A'+1);
+                } else {
+                    fail(); return null; // FIXME
+                }
+            } else if(ttype == '[') {
+                return "\033";
+            } else {
+                fail(); return null;//FIXME
             }
         } else if(ttype == TT_EOF || ttype == TT_EOL) {
             pushBack();
