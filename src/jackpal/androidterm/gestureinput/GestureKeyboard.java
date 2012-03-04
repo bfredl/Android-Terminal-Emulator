@@ -336,15 +336,23 @@ class MapFileReader extends StreamTokenizer {
         if(ttype != TT_NUMBER) 
             fail();
         int count = (int)nval;
-        List<Integer> pattern = new ArrayList();
-        nextTok();
-        while(isPos()) {
-            pattern.add(asPos());
+        List<Integer> pat = new ArrayList();
+        while(true) {
             nextTok();
+            if(isPos()) {
+                pat.add(asPos());
+            } else if(ttype == '!') {
+                // reverse it!
+                int s = pat.size();
+                pat.add(pat.get(s-1));
+                pat.add(pat.get(s-2));
+            } else {
+                break;
+            }
         }
         pushBack();
-        Log.d(TAG, String.format("shape %d %d %s", count, offset, pattern) );
-        mShapes.put(name, new Shape(count, offset, intArray(pattern)));
+        Log.d(TAG, String.format("shape %d %d %s", count, offset, pat) );
+        mShapes.put(name, new Shape(count, offset, intArray(pat)));
     }
 
     void parseShapeInvoke(Shape s) {
@@ -368,14 +376,8 @@ class MapFileReader extends StreamTokenizer {
                 if(a1 == null) {
                     return;
                 }
-                String a2 = parseAction();
-                if(a2 != null) {
-                    Log.d(TAG, String.format("si %d %d %s %s", pos1, pos2, a1, a2) );
-                    mTarget.mapGesture(pos1, pos2, a1, a2);
-                } else {
-                    mTarget.mapGesture(pos2, pos2, a1);
-                    return;
-                }
+                Log.d(TAG, String.format("si %d %d %s", pos1, pos2, a1) );
+                mTarget.mapGesture(pos1, pos2, a1);
             }
         }
 

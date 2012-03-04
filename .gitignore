@@ -8,3 +8,4 @@ obj/
 .classpath
 .project
 .settings/
+.*.swp
