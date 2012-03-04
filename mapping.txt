@@ -10,6 +10,18 @@ cpairs 0 p P y Y f F g G
 cpairs 1 c C r R l L q Q
 cpairs 2 j J k K x X b B
 
+shape mod1r r 3 A0 B2 
+shape mod1c r 4 A0 C1 
+
+mod1r 0 ^A ^I ^H
+mod1r 1 ^O ^M ^T
+mod1r 2 ^E ^W ^N
+mod1r 3 ^U ^D ^S
+
+mod1c 0 ^P ^Y ^F ^G
+mod1c 1 ^C ^R ^L ^Q
+mod1c 2 ^J ^K ^X ^B
+
 shape crossr r 3 A0 B1 !
 shape crossl r 3 B0 A1 !
 

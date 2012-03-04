@@ -159,6 +159,11 @@ public class GestureKeyboard {
     public int columns() {
         return mCols;
     }
+
+    public int rows() {
+        return mRows;
+    }
+
     private void displayPos(int pos) {
         mCurPos = pos;
         if( !mMoving ) {
@@ -276,8 +281,6 @@ class MapFileReader extends StreamTokenizer {
         sval = sval.intern();
         if(isPos()) {
             parseMapping();
-        } else if(sval == "sing") {
-            parseSingles();
         } else if(sval == "shape") {
             parseShape();
         } else if(mShapes.containsKey(sval)) {
@@ -370,8 +373,8 @@ class MapFileReader extends StreamTokenizer {
         for(int i = 0; i < s.repeatCount; i++) {
             int pos0 = basepos+i*s.repeatOffset;
             for(int k = 0; k < s.pattern.length-1; k+=2) {
-                int pos1 = pos0+s.pattern[k];
-                int pos2 = pos0+s.pattern[k+1];
+                int pos1 = posAdd(pos0, s.pattern[k]);
+                int pos2 = posAdd(pos0, s.pattern[k+1]);
                 String a1 = parseAction();
                 if(a1 == null) {
                     return;
@@ -392,19 +395,6 @@ class MapFileReader extends StreamTokenizer {
         return ints;
     }
 
-    void parseSingles() {
-        nextTok();
-        if(ttype != TT_NUMBER) {
-            fail();
-        }
-        int r = (int)nval;
-        for (int c = 0; c < 4; c++) {
-            String a1 = parseAction();
-            if(a1 == null) 
-                return;
-            mTarget.mapGesture(c, r, c, r, a1);
-        }
-    }
     // reuses NOT, pushes back on fail
     String parseAction() {
         nextTok();
@@ -453,6 +443,11 @@ class MapFileReader extends StreamTokenizer {
         char r0 = sval.charAt(1);
         int r = r0 - '0';
         return mTarget.asPos(c,r);
+    }
+
+    int posAdd(int p0, int p1) {
+        int c = mTarget.columns(), r = mTarget.rows();
+        return c*((p0/c+p1/c ) % r) + (p0 + p1) % c;
     }
 }
 
