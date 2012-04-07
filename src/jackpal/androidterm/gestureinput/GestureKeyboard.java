@@ -7,8 +7,8 @@ public class GestureKeyboard {
     private final String TAG = "GestureKeyboard";
 
     protected int mRows, mCols;
-    private GKAction[][] mActions;
-    private boolean mReady = false;
+    private LayoutManager mLayout;
+    private List<String> mActiveGroups = new ArrayList();
 
     protected int mPadX, mPadY;
     protected int mWidth, mHeight;
@@ -18,7 +18,16 @@ public class GestureKeyboard {
     protected int mCurPos;
 
     private ActionListener mListener;
-    
+
+    public GestureKeyboard(int rows, int cols, ActionListener l) {
+        mRows = rows;
+        mCols = cols;
+        mLayout = new LayoutManager(rows, cols);
+        mLayout.createGroup("base");
+        mActiveGroups.add("base");
+        mListener = l;
+    }
+
     public abstract static class GKAction {
         abstract public String describe();
         abstract void perform(); 
@@ -44,36 +53,42 @@ public class GestureKeyboard {
         }
     }
 
-
-    public GestureKeyboard() {
-        mReady = false;
+    public GKAction typeAction(String s) {
+        return new TypeAction(s);
     }
 
-    public GestureKeyboard(int rows, int cols, ActionListener l) {
-        mRows = rows;
-        mCols = cols;
-        mActions = new GKAction[rows*cols][rows*cols];
-        mListener = l;
-        mReady = true;
+
+    private class SetGroupAction extends GKAction {
+        String mGroup;
+        SetGroupAction(String group) {
+            mGroup = group;
+        }
+        public String describe() {
+            return "@"+mGroup;
+        }
+        public void perform() {
+            mActiveGroups.clear();
+            mActiveGroups.add(mGroup); //FIXME stack flag
+            mActiveGroups.add("base");
+        }
     }
 
-    public void mapGesture(int pos0, int pos1, String s) {
-        mActions[pos0][pos1] = new TypeAction(s);
+    public GKAction setGroupAction(String g) {
+        return new SetGroupAction(g);
     }
 
-    public void mapGesture(int pos0, int pos1, String s, String rev) {
-        mapGesture(pos0, pos1, s);
-        mapGesture(pos1, pos0, rev);
-    }
-    public void mapGesture(int c0, int r0, int c1, int r1, String s) {
-        int n = mCols;
-        mActions[n*r0+c0][n*r1+c1] = new TypeAction(s);
+    public void addGroup(String group) {
+        mLayout.createGroup(group);
     }
 
-    public void mapGesture(int c0, int r0, int c1, int r1, String s, String rev) {
-        mapGesture(c0, r0, c1, r1, s);
-        mapGesture(c1, r1, c0, r0, rev);
+    public void addMapping(String group, int pos0, int pos1, GKAction a) {
+        if( group == null) {
+            group = "base";
+        }
+        mLayout.group(group)[pos0][pos1] = a;
     }
+
+
     public void resize(int x, int y, int w, int h) {
         mPadX = x;
         mPadY = y;
@@ -133,8 +148,12 @@ public class GestureKeyboard {
         return asPos(c,r);
     }
 
+    private GKAction getAction(int pos0, int pos1) {
+        return mLayout.lookup(mActiveGroups, pos0, pos1);
+    }
+
     private void performAction(int startPos, int endPos) {
-        GKAction a = mActions[startPos][endPos];
+        GKAction a = getAction(startPos, endPos);
         if(a != null) 
             a.perform();
     }
@@ -144,7 +163,7 @@ public class GestureKeyboard {
             display("");
             return;
         }
-        GKAction a = mActions[startPos][endPos];
+        GKAction a = getAction(startPos, endPos);
         if(a != null) {
             display(a.describe());
         } else {
@@ -208,11 +227,54 @@ public class GestureKeyboard {
         fr.parseFile();
     }
 
-}
 
+    static class LayoutManager {
+
+        private int mRows, mCols;
+        private Map<String,GKAction[][]> mGroups = new HashMap();
+        int size;
+
+        LayoutManager(int rows, int cols) {
+            mRows = rows;
+            mCols = cols;
+            size = mRows*mCols;
+        }
+
+        void createGroup(String name) {
+            if( mGroups.containsKey(name))
+                return;
+            GKAction[][] group = new GKAction[size][size];
+            mGroups.put(name,group);
+        }
+
+        GKAction[][] group(String name) {
+            return mGroups.get(name);
+        }
+
+        GKAction lookup(List<String> groups, int pos1, int pos2) {
+            for(String g : groups) {
+                if(!mGroups.containsKey(g)) {
+                    throw new IllegalArgumentException("No such group: " + g);
+                }
+                GKAction a = group(g)[pos1][pos2];
+                if( a != null) {
+                    return a;
+                }
+            }
+            return null;
+        }
+
+
+
+
+   }
+
+
+}
 class MapFileReader extends StreamTokenizer {
     private static final String TAG = "MapFileReader";
     private GestureKeyboard mTarget;
+    private String mCurGroup = null;
 
     private static class Shape {
         int repeatCount;
@@ -246,7 +308,7 @@ class MapFileReader extends StreamTokenizer {
     }
 
     void fail() {
-        throw new RuntimeException("Meh" + lineno());
+        throw new RuntimeException("Parse error on line " + lineno());
     }
 
     void nextTok() {
@@ -283,6 +345,8 @@ class MapFileReader extends StreamTokenizer {
             parseMapping();
         } else if(sval == "shape") {
             parseShape();
+        } else if(sval == "group") {
+            parseGroup();
         } else if(mShapes.containsKey(sval)) {
             parseShapeInvoke(mShapes.get(sval));
         } else {
@@ -293,29 +357,30 @@ class MapFileReader extends StreamTokenizer {
 
     // reuses
     void parseMapping() {
-        int pos = asPos();
+        int pos0 = asPos();
         nextTok();
-        if(ttype == TT_WORD && isPos()) {
-            int pos2 = asPos();
-            String a1 = parseAction();
-            if(a1 == null) {
+        if(isPos()) {
+            int pos1 = asPos();
+            if(!parseAndMapAction(pos0,pos1)) {
                 fail();
             }
-            String a2 = parseAction();
-            if(a2 != null) {
-                mTarget.mapGesture(pos, pos2, a1, a2);
-            } else {
-                mTarget.mapGesture(pos, pos2, a1);
-            }
+            // revese mapping if exists
+            parseAndMapAction(pos1,pos0);
         } else {
             pushBack();
-            String a = parseAction();
-            if(a != null) {
-                mTarget.mapGesture(pos, pos, a);
-            } else {
+            if(!parseAndMapAction(pos0,pos0)) {
                 fail();
             }
         }
+    }
+
+
+    void parseGroup() {
+        nextTok();
+        if(ttype != TT_WORD) 
+            fail();
+        mCurGroup = sval;
+        mTarget.addGroup(mCurGroup);
     }
 
     void parseShape() {
@@ -375,12 +440,9 @@ class MapFileReader extends StreamTokenizer {
             for(int k = 0; k < s.pattern.length-1; k+=2) {
                 int pos1 = posAdd(pos0, s.pattern[k]);
                 int pos2 = posAdd(pos0, s.pattern[k+1]);
-                String a1 = parseAction();
-                if(a1 == null) {
+                if(!parseAndMapAction(pos1,pos2)) {
                     return;
                 }
-                Log.d(TAG, String.format("si %d %d %s", pos1, pos2, a1) );
-                mTarget.mapGesture(pos1, pos2, a1);
             }
         }
 
@@ -395,39 +457,58 @@ class MapFileReader extends StreamTokenizer {
         return ints;
     }
 
+    GestureKeyboard.GKAction type(String t) {
+        return mTarget.typeAction(t);
+    }
     // reuses NOT, pushes back on fail
-    String parseAction() {
+    GestureKeyboard.GKAction parseAction() {
         nextTok();
-        if(ttype == '"' || ttype == '\'') {
-            return sval; 
-        } else if(ttype == TT_WORD) {
-            if(isPos()) {
+        if(ttype == '"' ) {
+            return type(sval);
+        } else if(ttype == '\'') {
+            return type("\033"+sval);
+        } else if(isPos()) {
                 pushBack();
                 return null;
-            } else {
-                return sval;
-            }
+        } else if(ttype == TT_WORD) {
+                return type(sval);
         } else if(ttype == '^') {
             nextTok();
             if(ttype == TT_WORD && sval.length() == 1) {
                 char ch = sval.charAt(0);
                 if('A' <= ch && ch <= 'Z') {
-                    return String.format("%c",ch-'A'+1);
+                    return type(String.format("%c",ch-'A'+1));
                 } else {
-                    fail(); return null; // FIXME
+                    fail(); 
                 }
             } else if(ttype == '[') {
-                return "\033";
+                return type("\033");
             } else {
-                fail(); return null;//FIXME
+                fail();
             }
+        } else if(ttype == '@') {
+            nextTok();
+            if(ttype != TT_WORD) 
+                fail();
+            return mTarget.setGroupAction(sval);
         } else if(ttype == TT_EOF || ttype == TT_EOL) {
             pushBack();
             return null;
         } else {
             Log.d(TAG, String.format("ttype %d %c", ttype, ttype));
-            return String.format("%c",ttype);
+            return type(String.format("%c",ttype));
         }
+        return null;
+    }
+
+    private boolean parseAndMapAction(int pos0, int pos1) {
+        GestureKeyboard.GKAction a1 = parseAction();
+        if(a1 == null) {
+            return false;
+        }
+        Log.d(TAG, String.format("si %d %d %s", pos0, pos1, a1.describe()) );
+        mTarget.addMapping(mCurGroup, pos0, pos1, a1);
+        return true;
     }
 
 

@@ -43,14 +43,6 @@ public class AndroidGestureKeyboard extends GestureKeyboard {
         return true;
     }
 
-    public void demoMap() {
-        mapGesture(0,0,1,0,"[", "]");
-        mapGesture(2,0,3,0,"=", "_");
-        mapGesture(1,1,1,1,"\033[A");
-        mapGesture(1,2,1,2,"\033[B");
-        mapGesture(0,2,0,3,"\033", "\t");
-    }
-
     private void drawRect(Canvas c, int x, int y, int w, int h, Paint p) {
         c.drawLine(x,y,x+w,y,p);
         c.drawLine(x+w,y,x+w,y+h,p);
