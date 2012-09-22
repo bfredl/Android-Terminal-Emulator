@@ -24,8 +24,9 @@ import android.util.Log;
 import android.app.Notification;
 import android.app.PendingIntent;
 
+import jackpal.androidterm.emulatorview.TermSession;
+
 import jackpal.androidterm.compat.ServiceForegroundCompat;
-import jackpal.androidterm.session.TermSession;
 import jackpal.androidterm.util.SessionList;
 
 public class TermService extends Service implements TermSession.FinishCallback
@@ -83,6 +84,10 @@ public class TermService extends Service implements TermSession.FinishCallback
     public void onDestroy() {
         compat.stopForeground(true);
         for (TermSession session : mTermSessions) {
+            /* Don't automatically remove from list of sessions -- we clear the
+             * list below anyway and we could trigger
+             * ConcurrentModificationException if we do */
+            session.setFinishCallback(null);
             session.finish();
         }
         mTermSessions.clear();

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
    <!-- Don't localize these default values -->
-   <string name="pref_statusbar_default">0</string>
+   <string name="pref_statusbar_default">1</string>
    <integer name="pref_actionbar_default">1</integer>
    <string name="pref_cursorstyle_default">0</string>
    <string name="pref_cursorblink_default">0</string>
@@ -16,4 +16,7 @@
    <string name="pref_initialcommand_default">export PATH=/data/local/bin:$PATH</string>
    <string name="pref_termtype_default">screen</string>
    <bool name="pref_close_window_on_process_exit_default">true</bool>
+   <bool name="pref_verify_path_default">true</bool>
+   <bool name="pref_do_path_extensions_default">true</bool>
+   <bool name="pref_allow_prepend_path_default">true</bool>
 </resources>

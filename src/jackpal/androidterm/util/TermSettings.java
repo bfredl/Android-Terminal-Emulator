@@ -40,9 +40,16 @@ public class TermSettings {
     private int mFnKeyId;
     private int mUseCookedIME;
     private String mShell;
+    private String mFailsafeShell;
     private String mInitialCommand;
     private String mTermType;
     private boolean mCloseOnExit;
+    private boolean mVerifyPath;
+    private boolean mDoPathExtensions;
+    private boolean mAllowPathPrepend;
+
+    private String mPrependPath = null;
+    private String mAppendPath = null;
 
     private static final String STATUSBAR_KEY = "statusbar";
     private static final String ACTIONBAR_KEY = "actionbar";
@@ -59,6 +66,9 @@ public class TermSettings {
     private static final String INITIALCOMMAND_KEY = "initialcommand";
     private static final String TERMTYPE_KEY = "termtype";
     private static final String CLOSEONEXIT_KEY = "close_window_on_process_exit";
+    private static final String VERIFYPATH_KEY = "verify_path";
+    private static final String PATHEXTENSIONS_KEY = "do_path_extensions";
+    private static final String PATHPREPEND_KEY = "allow_prepend_path";
 
     public static final int WHITE = 0xffffffff;
     public static final int BLACK = 0xff000000;
@@ -66,8 +76,18 @@ public class TermSettings {
     public static final int GREEN = 0xff00ff00;
     public static final int AMBER = 0xffffb651;
     public static final int RED =   0xffff0113;
+    public static final int HOLO_BLUE = 0xff33b5e5;
 
-    public static final int[][] COLOR_SCHEMES = {{0, BLACK, 7, WHITE}, {7, WHITE, 0, BLACK}, {7, WHITE, 4, BLUE}, {2, GREEN, 0, BLACK}, {3, AMBER, 0, BLACK}, {1, RED, 0, BLACK}};
+    // foreground color, background color
+    public static final int[][] COLOR_SCHEMES = {
+        {BLACK, WHITE},
+        {WHITE, BLACK},
+        {WHITE, BLUE},
+        {GREEN, BLACK},
+        {AMBER, BLACK},
+        {RED,   BLACK},
+        {HOLO_BLUE, BLACK}
+    };
 
     public static final int ACTION_BAR_MODE_NONE = 0;
     public static final int ACTION_BAR_MODE_ALWAYS_VISIBLE = 1;
@@ -125,10 +145,14 @@ public class TermSettings {
         mControlKeyId = Integer.parseInt(res.getString(R.string.pref_controlkey_default));
         mFnKeyId = Integer.parseInt(res.getString(R.string.pref_fnkey_default));
         mUseCookedIME = Integer.parseInt(res.getString(R.string.pref_ime_default));
-        mShell = res.getString(R.string.pref_shell_default);
+        mFailsafeShell = res.getString(R.string.pref_shell_default);
+        mShell = mFailsafeShell;
         mInitialCommand = res.getString(R.string.pref_initialcommand_default);
         mTermType = res.getString(R.string.pref_termtype_default);
         mCloseOnExit = res.getBoolean(R.bool.pref_close_window_on_process_exit_default);
+        mVerifyPath = res.getBoolean(R.bool.pref_verify_path_default);
+        mDoPathExtensions = res.getBoolean(R.bool.pref_do_path_extensions_default);
+        mAllowPathPrepend = res.getBoolean(R.bool.pref_allow_prepend_path_default);
     }
 
     public void readPrefs(SharedPreferences prefs) {
@@ -150,6 +174,9 @@ public class TermSettings {
         mInitialCommand = readStringPref(INITIALCOMMAND_KEY, mInitialCommand);
         mTermType = readStringPref(TERMTYPE_KEY, mTermType);
         mCloseOnExit = readBooleanPref(CLOSEONEXIT_KEY, mCloseOnExit);
+        mVerifyPath = readBooleanPref(VERIFYPATH_KEY, mVerifyPath);
+        mDoPathExtensions = readBooleanPref(PATHEXTENSIONS_KEY, mDoPathExtensions);
+        mAllowPathPrepend = readBooleanPref(PATHPREPEND_KEY, mAllowPathPrepend);
         mPrefs = null;  // we leak a Context if we hold on to this
     }
 
@@ -241,6 +268,10 @@ public class TermSettings {
         return mShell;
     }
 
+    public String getFailsafeShell() {
+        return mFailsafeShell;
+    }
+
     public String getInitialCommand() {
         return mInitialCommand;
     }
@@ -251,5 +282,33 @@ public class TermSettings {
 
     public boolean closeWindowOnProcessExit() {
         return mCloseOnExit;
+    }
+
+    public boolean verifyPath() {
+        return mVerifyPath;
+    }
+
+    public boolean doPathExtensions() {
+        return mDoPathExtensions;
+    }
+
+    public boolean allowPathPrepend() {
+        return mAllowPathPrepend;
+    }
+
+    public void setPrependPath(String prependPath) {
+        mPrependPath = prependPath;
+    }
+
+    public String getPrependPath() {
+        return mPrependPath;
+    }
+
+    public void setAppendPath(String appendPath) {
+        mAppendPath = appendPath;
+    }
+
+    public String getAppendPath() {
+        return mAppendPath;
     }
 }
