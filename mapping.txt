@@ -46,21 +46,29 @@ cdubs 0 "ä" "Ä" "$" "#" "@" ~ _ "^" cdubs 1 "ö" "Ö" '[B' '[A' '[6~' '[5~'
 A0 D0 @test
 A1 D1 @shell
 A2 D2 @python
+A0 D3 @RELOAD
 
 
 shape singl r 4 A0 A0 
+singl 3 '[D' '[B' '[A' '[C'
+
 group test
 singl 0 "0" "1" "2" "3"
 singl 1 ^H "4" "5" "6"
 singl 2 ^[ "7" "8" "9"
-singl 3 '[D' '[B' '[A' '[C'
 
 group shell
 singl 0 "0" "1" "2" "3"
-singl 1 ^H "cd " "ls " "ls -l "
-singl 2 ^[ "vi " "8" "9"
+singl 1 ^H "cd " "ls " ^I
+singl 2 ^[ "vi " "8" ^M
 singl 3 '[D' '[B' '[A' '[C'
 
 
 group python
-singl 0 "class" "def" "if" "else"
+singl 0 "def " "if " "else: " "(lambda "
+singl 1 ^H "range(" " " ^I
+singl 2 ^[ "(" ")" ^M
+singl 3 '[D' '[B' '[A' '[C'
+A0 C2 "import " "from "
+A1 C3 "for " "class "
+A0 A3 "from math import *"

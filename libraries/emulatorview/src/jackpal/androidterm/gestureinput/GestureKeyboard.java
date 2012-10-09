@@ -19,6 +19,8 @@ public class GestureKeyboard {
 
     private ActionListener mListener;
 
+    private String filename = null;
+
     public GestureKeyboard(int rows, int cols, ActionListener l) {
         mRows = rows;
         mCols = cols;
@@ -77,6 +79,22 @@ public class GestureKeyboard {
         return new SetGroupAction(g);
     }
 
+    private class ReloadMappingAction extends GKAction {
+        public String describe() {
+            return "#reload#";
+        }
+        public void perform() {
+            if(filename != null) {
+                readFile(filename);
+            }
+            // FIXME check groupnames
+        }
+    }
+
+    public GKAction reloadMappingAction() {
+        return new ReloadMappingAction();
+    }
+
     public void addGroup(String group) {
         mLayout.createGroup(group);
     }
@@ -97,9 +115,9 @@ public class GestureKeyboard {
     }
 
     public void resizeSquare(int w, int h, int m) {
-        int s = Math.min(w,h)-2*m;
+        int s = Math.min(Math.min(w,h)-2*m,300);
         mPadX = (w-s)/2;
-        mPadY = (h-s)/2;
+        mPadY = h-s-m;
         mWidth = mHeight = s;
     }
 
@@ -224,6 +242,7 @@ public class GestureKeyboard {
         } catch(Exception e) {
             throw new RuntimeException(e);
         }
+        this.filename = filename;
         fr.parseFile();
     }
 
@@ -490,7 +509,11 @@ class MapFileReader extends StreamTokenizer {
             nextTok();
             if(ttype != TT_WORD) 
                 fail();
-            return mTarget.setGroupAction(sval);
+            if(sval.equals("RELOAD")) {
+                return mTarget.reloadMappingAction();
+            } else {
+                return mTarget.setGroupAction(sval);
+            }
         } else if(ttype == TT_EOF || ttype == TT_EOL) {
             pushBack();
             return null;
